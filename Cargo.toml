@@ -1,0 +1,28 @@
+[package]
+name = "keyboard-counter"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.68"
+font-kit = "0.10"
+minifb = "0.23.0"
+raqote = "0.8.1"
+[dependencies.windows]
+version = "0.43.0"
+features = [
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation"
+]
+
+[build-dependencies]
+winres = "0.1"
+anyhow = "1.0.68"
+
+[profile.release]
+opt-level = "z" 
+lto = true
+codegen-units = 1
+panic = "abort"
