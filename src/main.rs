@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use chrono::Utc;
-use counter::{Counter, Event, KeyEvent, MouseEvent, Point};
+use counter::{Counter, Event, KeyEvent, MouseEvent, Point, Today};
 use once_cell::sync::Lazy;
 use std::{collections::HashMap, sync::RwLock};
 use tools::{
@@ -24,11 +24,13 @@ pub static COUNTER: Lazy<RwLock<Counter>> = Lazy::new(|| {
     RwLock::new(read_storage().unwrap_or(Counter {
         timestamp: Utc::now().timestamp_millis(),
         maps: HashMap::new(),
+        today: Today::new(),
         ctrl_press: false,
         last_mouse_click_event: (0, Point::default()),
         last_mouse_wheel_time: 0,
         last_mouse_move_time: 0,
         alt_press: false,
+        show_today: false,
     }))
 });
 

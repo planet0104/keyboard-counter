@@ -1,6 +1,6 @@
 use anyhow::Result;
 use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
-use minifb::{Window, WindowOptions};
+use minifb::{MouseButton, MouseMode, Window, WindowOptions};
 use raqote::{DrawOptions, DrawTarget, SolidSource, Source, StrokeStyle};
 use std::thread::JoinHandle;
 use tray_icon::{menu::Menu, tray_event_receiver, ClickEvent, TrayEvent, TrayIconBuilder};
@@ -25,7 +25,7 @@ const ICON: &[u8] = include_bytes!("../icon.rgba.bzip2");
 const ICON_SIZE: u32 = 128;
 
 pub const WIDTH: usize = 750;
-pub const HEIGHT: usize = 320;
+pub const HEIGHT: usize = 400;
 
 pub fn open(first_run: bool) -> JoinHandle<Result<()>> {
     std::thread::spawn(move || run(first_run))
@@ -79,6 +79,12 @@ pub fn run(mut first_run: bool) -> Result<()> {
         text_color: Source::Solid(SolidSource::from_unpremultiplied_argb(
             0xFF, 0xF1, 0xF1, 0xF1,
         )),
+        button_background: Source::Solid(SolidSource::from_unpremultiplied_argb(
+            0xFF, 0x70, 0x70, 0x70,
+        )),
+        button_text_color: Source::Solid(SolidSource::from_unpremultiplied_argb(
+            0xFF, 0xcd, 0xcd, 0xcd,
+        )),
         stroke_style: StrokeStyle {
             width: 1.,
             ..Default::default()
@@ -122,6 +128,42 @@ pub fn run(mut first_run: bool) -> Result<()> {
             counter.draw(&mut dt, &font, &draw_config);
         }
 
+        if window.is_key_down(minifb::Key::Left) {
+            if let Ok(mut counter) = COUNTER.write() {
+                counter.show_today = false;
+            }
+        }
+        if window.is_key_down(minifb::Key::Right) {
+            if let Ok(mut counter) = COUNTER.write() {
+                counter.show_today = true;
+            }
+        }
+
+        if window.get_mouse_down(MouseButton::Left) {
+            if let Some((x, y)) = window.get_mouse_pos(MouseMode::Clamp) {
+                //draw_button ←累计输入 37.5x315 300x60.000004
+                //draw_button 今日输入↑ 412.5x315 300x60.000004
+                let x1 = 37.;
+                let y1 = 315.;
+                let x2 = 412.;
+                let y2 = 315.;
+                let w = 300.;
+                let h = 60.;
+
+                if x > x1 && x < x1 + w && y > y1 && y < y1 + h {
+                    if let Ok(mut counter) = COUNTER.write() {
+                        counter.show_today = false;
+                    }
+                }
+
+                if x > x2 && x < x2 + w && y > y2 && y < y2 + h {
+                    if let Ok(mut counter) = COUNTER.write() {
+                        counter.show_today = true;
+                    }
+                }
+            }
+        }
+
         if active && !window.is_active() {
             active = false;
             if width == 0 && height == 0 {
@@ -133,6 +175,7 @@ pub fn run(mut first_run: bool) -> Result<()> {
         }
 
         if let Some(menu_id) = window.is_menu_pressed() {
+            // println!("菜单点击:{}", menu_id);
             match menu_id {
                 0 => {
                     if is_app_registered_for_startup(app_name)? {
@@ -153,12 +196,13 @@ pub fn run(mut first_run: bool) -> Result<()> {
                         file_name: &file_name,
                         ..Default::default()
                     };
-                    let dialog_result = wfd::save_dialog(params).unwrap();
-                    let save_path = dialog_result
-                        .selected_file_path
-                        .to_str()
-                        .unwrap_or(&file_name);
-                    dt.write_png(save_path)?;
+                    if let Ok(dialog_result) = wfd::save_dialog(params) {
+                        let save_path = dialog_result
+                            .selected_file_path
+                            .to_str()
+                            .unwrap_or(&file_name);
+                        dt.write_png(save_path)?;
+                    }
                 }
                 2 => {
                     if let Ok(mut counter) = COUNTER.write() {

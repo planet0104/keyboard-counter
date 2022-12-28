@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{Local, Utc};
 use font_kit::font::Font;
 use num_enum::TryFromPrimitive;
 use raqote::{DrawOptions, DrawTarget, PathBuilder, Point as PointF, Source, StrokeStyle};
@@ -102,6 +102,8 @@ pub struct DrawConfig<'a> {
     pub border_color: Source<'a>,
     pub label_color: Source<'a>,
     pub text_color: Source<'a>,
+    pub button_background: Source<'a>,
+    pub button_text_color: Source<'a>,
     pub draw_options: DrawOptions,
     pub stroke_style: StrokeStyle,
     pub lable_font_size: f32,
@@ -109,14 +111,44 @@ pub struct DrawConfig<'a> {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct Today {
+    pub date: String,
+    pub maps: HashMap<String, u128>,
+}
+
+impl Today {
+    pub fn new() -> Self {
+        Self {
+            date: format!("{}", Local::now().format("%Y-%m-%d")),
+            maps: HashMap::new(),
+        }
+    }
+    pub fn add_count(&mut self, name: &str) {
+        let date = format!("{}", Local::now().format("%Y-%m-%d"));
+        if self.date != date {
+            self.date = date;
+            self.maps.clear();
+        }
+
+        if let Some(val) = self.maps.get_mut(name) {
+            *val += 1;
+        } else {
+            self.maps.insert(name.to_string(), 1);
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct Counter {
     pub timestamp: i64,
     pub maps: HashMap<String, u128>,
+    pub today: Today,
     pub ctrl_press: bool,
     pub alt_press: bool,
     pub last_mouse_click_event: (i64, Point),
     pub last_mouse_wheel_time: i64,
     pub last_mouse_move_time: i64,
+    pub show_today: bool,
 }
 
 impl Counter {
@@ -213,6 +245,7 @@ impl Counter {
         } else {
             self.maps.insert(name.to_string(), 1);
         }
+        self.today.add_count(name);
     }
 
     pub fn draw(&self, dt: &mut DrawTarget, font: &Font, draw_config: &DrawConfig) {
@@ -225,9 +258,10 @@ impl Counter {
             &draw_config.background,
             &draw_config.draw_options,
         );
+        let tab_height = HEIGHT as f32 / 4.;
         let box_margin = 10.;
         let box_width = (WIDTH as f32 - box_margin) / 6. - box_margin;
-        let box_height = (HEIGHT as f32 - box_margin * 4.) / 3.;
+        let box_height = (HEIGHT as f32 - tab_height - box_margin * 4.) / 3.;
         let corner = 6.;
         let start_x = 0.;
         let starty_y = 0.;
@@ -235,7 +269,12 @@ impl Counter {
         let mut cursor_x = start_x;
         let mut cursor_y = starty_y + box_margin;
         for (index, key) in KEY_LIST.iter().enumerate() {
-            let val = self.maps.get(*key).unwrap_or(&0);
+            let val = if self.show_today {
+                self.today.maps.get(*key).unwrap_or(&0)
+            } else {
+                self.maps.get(*key).unwrap_or(&0)
+            };
+
             if index > 0 && index % 6 == 0 {
                 cursor_y += box_height + box_margin;
                 cursor_x = start_x;
@@ -255,6 +294,45 @@ impl Counter {
             );
             cursor_x += box_width;
         }
+
+        // 绘制底部文字
+        let tab_top = HEIGHT as f32 - tab_height * 0.85;
+        let button_width = WIDTH as f32 * 0.4;
+        let button_height = tab_height * 0.6;
+        let button_corner = 10.;
+        let button_left = (WIDTH as f32 / 2. - button_width) / 2.;
+
+        let text1_suffix = if self.show_today { "←" } else { "↑" };
+
+        let text2_suffix = if self.show_today { "↑" } else { "→" };
+
+        let text1 = format!("{}累计输入", text1_suffix);
+        let text2 = format!("今日输入{}", text2_suffix);
+
+        draw_button(
+            button_left,
+            tab_top,
+            button_width,
+            button_height,
+            button_corner,
+            &text1,
+            !self.show_today,
+            dt,
+            font,
+            draw_config,
+        );
+        draw_button(
+            WIDTH as f32 / 2. + button_left,
+            tab_top,
+            button_width,
+            button_height,
+            button_corner,
+            &text2,
+            self.show_today,
+            dt,
+            font,
+            draw_config,
+        );
     }
 }
 
@@ -325,6 +403,72 @@ fn draw_box(
         text,
         start,
         &draw_config.text_color,
+        &draw_config.draw_options,
+    );
+}
+
+fn draw_button(
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    corner: f32,
+    text: &str,
+    selected: bool,
+    dt: &mut DrawTarget,
+    font: &Font,
+    draw_config: &DrawConfig,
+) {
+    // println!("draw_button {text} {x}x{y} {width}x{height}");
+    let mut pb = PathBuilder::new();
+    let half_corner = corner / 2.;
+    let x0 = x;
+    let y0 = y;
+    let x1 = x + width;
+    let y1 = y;
+    let x2 = x + width;
+    let y2 = y + height;
+    let x3 = x;
+    let y3 = y + height;
+
+    pb.move_to(x0 + corner, y0);
+    pb.line_to(x1 - corner, y1);
+    pb.cubic_to(x1 - half_corner, y1, x1, y + half_corner, x1, y1 + corner);
+    pb.line_to(x2, y2 - corner);
+    pb.cubic_to(x2, y2 - half_corner, x2 - half_corner, y2, x2 - corner, y2);
+    pb.line_to(x3 + corner, y3);
+    pb.cubic_to(x3 + half_corner, y3, x3, y3 - half_corner, x3, y3 - corner);
+    pb.line_to(x0, y0 + corner);
+    pb.cubic_to(x0, y0 + half_corner, x0 + half_corner, y0, x0 + corner, y0);
+    let path = pb.finish();
+
+    if selected {
+        dt.fill(
+            &path,
+            &draw_config.button_background,
+            &draw_config.draw_options,
+        );
+    } else {
+        dt.stroke(
+            &path,
+            &draw_config.button_text_color,
+            &draw_config.stroke_style,
+            &draw_config.draw_options,
+        );
+    }
+
+    let point_size = draw_config.lable_font_size;
+    let measure_size = measure_text(font, point_size, text);
+    let start_x = x + width / 2. - measure_size.x / 2.;
+    let start = PointF::new(start_x, y + height / 2. + corner / 2.);
+
+    draw_text(
+        dt,
+        font,
+        point_size,
+        text,
+        start,
+        &draw_config.button_text_color,
         &draw_config.draw_options,
     );
 }
