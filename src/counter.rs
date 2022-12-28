@@ -11,6 +11,13 @@ use crate::{
 };
 
 const VK_CTRL: u32 = 162;
+const VK_ESC: u32 = 27;
+const VK_TAB: u32 = 9;
+const VK_BACKSPACE: u32 = 8;
+// const VK_SHIFT: u32 = 160;
+const VK_ALT: u32 = 164;
+const VK_DELETE: u32 = 46;
+const VK_ENTER: u32 = 13;
 const VK_C: u32 = 67;
 const VK_X: u32 = 88;
 const VK_V: u32 = 86;
@@ -62,6 +69,12 @@ const KEY_CTRL_V: &str = "CTRL + V";
 const KEY_CTRL_Z: &str = "CTRL + Z";
 const KEY_CTRL_Y: &str = "CTRL + Y";
 const KEY_CTRL_S: &str = "CTRL + S";
+const KEY_ALT_TAB: &str = "ALT + TAB";
+const KEY_BACKSPACE: &str = "Backspace";
+const KEY_ENTER: &str = "Enter";
+const KEY_ESC: &str = "Esc";
+const KEY_DELETE: &str = "Delete";
+const KEY_TAB: &str = "Tab";
 
 const KEY_LIST: &[&str] = &[
     MOUSE_LEFT_CLICK_COUNT,
@@ -76,6 +89,12 @@ const KEY_LIST: &[&str] = &[
     KEY_CTRL_Z,
     KEY_CTRL_Y,
     KEY_CTRL_S,
+    KEY_ALT_TAB,
+    KEY_BACKSPACE,
+    KEY_ENTER,
+    KEY_ESC,
+    KEY_DELETE,
+    KEY_TAB,
 ];
 
 pub struct DrawConfig<'a> {
@@ -94,12 +113,17 @@ pub struct Counter {
     pub timestamp: i64,
     pub maps: HashMap<String, u128>,
     pub ctrl_press: bool,
+    pub alt_press: bool,
     pub last_mouse_click_event: (i64, Point),
     pub last_mouse_wheel_time: i64,
     pub last_mouse_move_time: i64,
 }
 
 impl Counter {
+    /// 清空数据
+    pub fn clear(&mut self) {
+        self.maps.clear();
+    }
     pub fn recv(&mut self, event: Event) {
         match event {
             Event::KeyEvent(KeyEvent::KeyPress(code)) => {
@@ -107,23 +131,46 @@ impl Counter {
                 // println!("code={code}");
                 if code == VK_CTRL {
                     self.ctrl_press = true;
-                } else {
-                    if self.ctrl_press {
-                        match code {
-                            VK_C => self.add_count(KEY_CTRL_C),
-                            VK_S => self.add_count(KEY_CTRL_S),
-                            VK_X => self.add_count(KEY_CTRL_X),
-                            VK_Z => self.add_count(KEY_CTRL_Z),
-                            VK_Y => self.add_count(KEY_CTRL_Y),
-                            VK_V => self.add_count(KEY_CTRL_V),
-                            _ => (),
-                        }
-                    };
                 }
+                if code == VK_ALT {
+                    self.alt_press = true;
+                }
+                if code == VK_BACKSPACE {
+                    self.add_count(KEY_BACKSPACE);
+                }
+                if code == VK_ENTER {
+                    self.add_count(KEY_ENTER);
+                }
+                if code == VK_DELETE {
+                    self.add_count(KEY_DELETE);
+                }
+                if code == VK_ESC {
+                    self.add_count(KEY_ESC);
+                }
+                if code == VK_TAB {
+                    self.add_count(KEY_TAB);
+                    if self.alt_press {
+                        self.add_count(KEY_ALT_TAB);
+                    }
+                }
+
+                if self.ctrl_press {
+                    match code {
+                        VK_C => self.add_count(KEY_CTRL_C),
+                        VK_S => self.add_count(KEY_CTRL_S),
+                        VK_X => self.add_count(KEY_CTRL_X),
+                        VK_Z => self.add_count(KEY_CTRL_Z),
+                        VK_Y => self.add_count(KEY_CTRL_Y),
+                        VK_V => self.add_count(KEY_CTRL_V),
+                        _ => (),
+                    }
+                };
             }
             Event::KeyEvent(KeyEvent::KeyUp(code)) => {
                 if code == VK_CTRL {
                     self.ctrl_press = false;
+                } else if code == VK_ALT {
+                    self.alt_press = false;
                 }
             }
             Event::MouseEvent((MouseEvent::MouseLeftBUttonDown, pt)) => {
@@ -180,7 +227,7 @@ impl Counter {
         );
         let box_margin = 10.;
         let box_width = (WIDTH as f32 - box_margin) / 6. - box_margin;
-        let box_height = (HEIGHT as f32 - box_margin * 3.) / 2.;
+        let box_height = (HEIGHT as f32 - box_margin * 4.) / 3.;
         let corner = 6.;
         let start_x = 0.;
         let starty_y = 0.;

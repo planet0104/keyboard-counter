@@ -28,6 +28,7 @@ pub static COUNTER: Lazy<RwLock<Counter>> = Lazy::new(|| {
         last_mouse_click_event: (0, Point::default()),
         last_mouse_wheel_time: 0,
         last_mouse_move_time: 0,
+        alt_press: false,
     }))
 });
 

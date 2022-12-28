@@ -25,7 +25,7 @@ const ICON: &[u8] = include_bytes!("../icon.rgba.bzip2");
 const ICON_SIZE: u32 = 128;
 
 pub const WIDTH: usize = 750;
-pub const HEIGHT: usize = 250;
+pub const HEIGHT: usize = 320;
 
 pub fn open(first_run: bool) -> JoinHandle<Result<()>> {
     std::thread::spawn(move || run(first_run))
@@ -40,6 +40,7 @@ pub fn run(mut first_run: bool) -> Result<()> {
         HEIGHT,
         WindowOptions {
             resize: false,
+            // topmost: true,
             ..WindowOptions::default()
         },
     )?;
@@ -47,6 +48,7 @@ pub fn run(mut first_run: bool) -> Result<()> {
     let mut menu = minifb::Menu::new("设置")?;
     menu.add_item("开机启动", 0).build();
     menu.add_item("保存图片", 1).build();
+    menu.add_item("清空数据", 2).build();
     window.add_menu(&menu);
 
     // Limit to max ~60 fps update rate
@@ -108,20 +110,20 @@ pub fn run(mut first_run: bool) -> Result<()> {
     )?;
 
     while window.is_open() {
-        if active {
+        if !first_run {
+            hide_window(&window);
+            first_run = true;
+        }
+        let (width, height) = window.get_size();
+
+        if active || width * height > 0 {
             //渲染
             let counter = COUNTER.read().unwrap();
             counter.draw(&mut dt, &font, &draw_config);
         }
 
-        if !first_run {
-            hide_window(&window);
-            first_run = true;
-        }
-
         if active && !window.is_active() {
             active = false;
-            let (width, height) = window.get_size();
             if width == 0 && height == 0 {
                 hide_window(&window);
             }
@@ -157,6 +159,11 @@ pub fn run(mut first_run: bool) -> Result<()> {
                         .to_str()
                         .unwrap_or(&file_name);
                     dt.write_png(save_path)?;
+                }
+                2 => {
+                    if let Ok(mut counter) = COUNTER.write() {
+                        counter.clear();
+                    }
                 }
                 _ => (),
             }
