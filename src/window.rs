@@ -13,12 +13,12 @@ use windows::{
 use crate::{
     alert,
     counter::DrawConfig,
+    get_counter, get_counter_mut,
     tools::{
         hide_window, is_app_registered_for_startup, load_icon_from_memory,
         load_tray_icon_from_memory, register_app_for_startup, remove_app_for_startup,
         remove_keyboard_hook, remove_mouse_hook, save_storage, set_window_icon, show_window,
     },
-    COUNTER,
 };
 
 const ICON: &[u8] = include_bytes!("../icon.rgba.bzip2");
@@ -124,19 +124,14 @@ pub fn run(mut first_run: bool) -> Result<()> {
 
         if active || width * height > 0 {
             //渲染
-            let counter = COUNTER.read().unwrap();
-            counter.draw(&mut dt, &font, &draw_config);
+            get_counter().draw(&mut dt, &font, &draw_config);
         }
 
         if window.is_key_down(minifb::Key::Left) {
-            if let Ok(mut counter) = COUNTER.write() {
-                counter.show_today = false;
-            }
+            get_counter_mut().show_today = false;
         }
         if window.is_key_down(minifb::Key::Right) {
-            if let Ok(mut counter) = COUNTER.write() {
-                counter.show_today = true;
-            }
+            get_counter_mut().show_today = true;
         }
 
         if window.get_mouse_down(MouseButton::Left) {
@@ -151,15 +146,11 @@ pub fn run(mut first_run: bool) -> Result<()> {
                 let h = 60.;
 
                 if x > x1 && x < x1 + w && y > y1 && y < y1 + h {
-                    if let Ok(mut counter) = COUNTER.write() {
-                        counter.show_today = false;
-                    }
+                    get_counter_mut().show_today = false;
                 }
 
                 if x > x2 && x < x2 + w && y > y2 && y < y2 + h {
-                    if let Ok(mut counter) = COUNTER.write() {
-                        counter.show_today = true;
-                    }
+                    get_counter_mut().show_today = true;
                 }
             }
         }
@@ -205,9 +196,7 @@ pub fn run(mut first_run: bool) -> Result<()> {
                     }
                 }
                 2 => {
-                    if let Ok(mut counter) = COUNTER.write() {
-                        counter.clear();
-                    }
+                    get_counter_mut().clear();
                 }
                 _ => (),
             }
@@ -232,7 +221,7 @@ pub fn run(mut first_run: bool) -> Result<()> {
     remove_keyboard_hook();
     remove_mouse_hook();
     //存盘
-    save_storage(&COUNTER.read().unwrap())?;
+    save_storage(get_counter())?;
     //退出
     std::process::exit(0);
 }

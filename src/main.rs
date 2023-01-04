@@ -3,8 +3,7 @@
 use anyhow::Result;
 use chrono::Utc;
 use counter::{Counter, Event, KeyEvent, MouseEvent, Point, Today};
-use once_cell::sync::Lazy;
-use std::{collections::HashMap, sync::RwLock};
+use std::{collections::HashMap, ptr::null_mut};
 use tools::{
     read_storage, save_storage_async, set_keyboard_hook, set_mouse_hook, KEYBOARD_HOOK, MOUSE_HOOK,
 };
@@ -20,8 +19,17 @@ mod counter;
 mod tools;
 mod window;
 
-pub static COUNTER: Lazy<RwLock<Counter>> = Lazy::new(|| {
-    RwLock::new(read_storage().unwrap_or(Counter {
+pub static mut COUNTER: *mut Counter = null_mut();
+
+pub fn get_counter() -> &'static Counter {
+    unsafe { &*COUNTER }
+}
+pub fn get_counter_mut() -> &'static mut Counter {
+    unsafe { &mut *COUNTER }
+}
+
+fn main() -> Result<()> {
+    let counter = Box::new(read_storage().unwrap_or(Counter {
         timestamp: Utc::now().timestamp_millis(),
         maps: HashMap::new(),
         today: Today::new(),
@@ -31,13 +39,16 @@ pub static COUNTER: Lazy<RwLock<Counter>> = Lazy::new(|| {
         last_mouse_move_time: 0,
         alt_press: false,
         show_today: false,
-    }))
-});
+    }));
 
-fn main() -> Result<()> {
-    window::open(COUNTER.read().unwrap().maps.len() == 0);
+    unsafe {
+        COUNTER = Box::into_raw(counter);
+    }
+
+    window::open(get_counter().maps.len() == 0);
 
     let mut last_save_time = Utc::now().timestamp_millis();
+
     set_keyboard_hook(keyboard_hook_proc)?;
     set_mouse_hook(mouse_hook_proc)?;
 
@@ -47,7 +58,7 @@ fn main() -> Result<()> {
             //每隔1分钟存盘
             let now = Utc::now().timestamp_millis();
             if now - last_save_time > 60 * 1000 {
-                let _ = save_storage_async(&COUNTER.read().unwrap());
+                let _ = save_storage_async(get_counter());
                 last_save_time = now;
             }
 
@@ -59,7 +70,7 @@ fn main() -> Result<()> {
 }
 
 unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    let mut counter = COUNTER.write().unwrap();
+    let counter = get_counter_mut();
     let data = lparam.0 as *const KBDLLHOOKSTRUCT;
     if !data.is_null() {
         let data: &KBDLLHOOKSTRUCT = &*data;
@@ -88,7 +99,7 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
 }
 
 unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    let mut counter = COUNTER.write().unwrap();
+    let counter = get_counter_mut();
 
     let data = lparam.0 as *const MSLLHOOKSTRUCT;
     if !data.is_null() {
