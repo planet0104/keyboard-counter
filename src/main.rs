@@ -4,9 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use counter::{Counter, Event, KeyEvent, MouseEvent, Point, Today};
 use std::{collections::HashMap, ptr::null_mut};
-use tools::{
-    read_storage, save_storage_async, set_keyboard_hook, set_mouse_hook, KEYBOARD_HOOK, MOUSE_HOOK,
-};
+use tools::{read_storage, set_keyboard_hook, set_mouse_hook, KEYBOARD_HOOK, MOUSE_HOOK};
 use windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     UI::WindowsAndMessaging::{
@@ -47,21 +45,12 @@ fn main() -> Result<()> {
 
     window::open(get_counter().maps.len() == 0);
 
-    let mut last_save_time = Utc::now().timestamp_millis();
-
     set_keyboard_hook(keyboard_hook_proc)?;
     set_mouse_hook(mouse_hook_proc)?;
 
     unsafe {
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, HWND(0), 0, 0).0 > 0 {
-            //每隔1分钟存盘
-            let now = Utc::now().timestamp_millis();
-            if now - last_save_time > 60 * 1000 {
-                let _ = save_storage_async(get_counter());
-                last_save_time = now;
-            }
-
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }

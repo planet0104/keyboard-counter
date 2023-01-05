@@ -173,7 +173,8 @@ pub fn save_storage_async(data: &Counter) -> Result<JoinHandle<()>> {
     let encoded: Vec<u8> = bincode::serialize(data)?;
     Ok(std::thread::spawn(move || {
         if let Ok(mut cfg_file) = File::create(&get_storage_path()) {
-            let _ = cfg_file.write_all(&encoded);
+            let res = cfg_file.write_all(&encoded);
+            println!("写入了配置文件:{:?}", res);
         }
     }))
 }

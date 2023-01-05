@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::Utc;
 use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
 use minifb::{MouseButton, MouseMode, Window, WindowOptions};
 use raqote::{DrawOptions, DrawTarget, SolidSource, Source, StrokeStyle};
@@ -17,7 +18,8 @@ use crate::{
     tools::{
         hide_window, is_app_registered_for_startup, load_icon_from_memory,
         load_tray_icon_from_memory, register_app_for_startup, remove_app_for_startup,
-        remove_keyboard_hook, remove_mouse_hook, save_storage, set_window_icon, show_window,
+        remove_keyboard_hook, remove_mouse_hook, save_storage, save_storage_async, set_window_icon,
+        show_window,
     },
 };
 
@@ -115,7 +117,16 @@ pub fn run(mut first_run: bool) -> Result<()> {
         load_icon_from_memory(ICON.to_vec(), ICON_SIZE, ICON_SIZE)?,
     )?;
 
+    let mut last_save_time = Utc::now().timestamp_millis();
+
     while window.is_open() {
+        //每隔1分钟存盘
+        let now = Utc::now().timestamp_millis();
+        if now - last_save_time > 60 * 1000 {
+            let _ = save_storage_async(get_counter());
+            last_save_time = now;
+        }
+
         if !first_run {
             hide_window(&window);
             first_run = true;
